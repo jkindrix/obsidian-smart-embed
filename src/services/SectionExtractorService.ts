@@ -1,8 +1,13 @@
 import { Logger } from "../utils/Logger";
 
 export class SectionExtractorService {
-  static extractSection(content: string, section: string, occurrence: number = 1): string | null {
-    Logger.log("Looking for section:", section);
+  static extractSection(
+    content: string,
+    section: string,
+    includeHeader: boolean = true,
+    occurrence: number = 1
+  ): string | null {
+    Logger.log("Looking for section:", section, `Include Header: ${includeHeader}`);
 
     // Normalize line endings to Unix format for consistency
     content = content.replace(/\r\n/g, "\n");
@@ -16,7 +21,6 @@ export class SectionExtractorService {
         .normalize("NFKC") // Normalize Unicode representations
         .replace(/[*_~`[\]]/g, "") // Remove markdown formatting symbols
         .replace(/\s{2,}/g, " ") // Normalize spaces but keep numbers in section titles
-        .replace(/\s{2,}/g, " ") // Convert multiple spaces to single space
         .trim();
 
     const escapedSection = normalizeSection(section).replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
@@ -25,7 +29,7 @@ export class SectionExtractorService {
     const sectionRegex = new RegExp(`(^|\\n)(#{1,6})\\s*(\\*\\*)?${escapedSection}(\\*\\*)?\\s*(\\n|$)`, "i");
 
     let inCodeBlock = false;
-    let match: string | null = null;
+    let matchIndex = -1;
     let matchCount = 0;
     let matchedHeaderLevel = 0;
     let lines = content.split("\n");
@@ -51,32 +55,42 @@ export class SectionExtractorService {
         Logger.log(`Found section match: '${regexMatch[0]}'`);
         matchCount++;
         if (matchCount === occurrence) {
-          match = regexMatch[0];
+          matchIndex = i;
           matchedHeaderLevel = regexMatch[2].length; // Capture header level (number of #)
           break;
         }
       }
     }
 
-    if (!match) {
+    if (matchIndex === -1) {
       Logger.warn(`Section '${section}' NOT found in content`);
-      return "Section not found.";
+      return "**Error:** Section not found.";
     }
 
     // Locate the start index in the original content
-    const startIndex = content.indexOf(match) + match.length;
+    let startIndex = matchIndex;
+    if (!includeHeader) {
+      startIndex += 1; // Skip the section header line
+    }
 
     // Find the next same-level or higher header to determine the end boundary
-    const nextHeaderRegex = new RegExp(`(^|\\n)(#{1,${matchedHeaderLevel}})\\s+`, "m");
-    const nextHeaderMatch = content.slice(startIndex).match(nextHeaderRegex);
-    const endIndex = nextHeaderMatch ? startIndex + nextHeaderMatch.index! : content.length;
+    let endIndex = content.length;
+    for (let i = startIndex + 1; i < lines.length; i++) {
+      let line = lines[i].trim();
+      const nextHeaderMatch = line.match(new RegExp(`^(#{1,${matchedHeaderLevel}})\\s+`));
+
+      if (nextHeaderMatch) {
+        endIndex = i;
+        break;
+      }
+    }
 
     // Extract content within the determined boundaries
-    let extractedContent = content.slice(startIndex, endIndex).trim();
+    let extractedContent = lines.slice(startIndex, endIndex).join("\n").trim();
 
     Logger.log("Extracted Content:", extractedContent);
 
-    return extractedContent.length > 0 ? extractedContent : "Section is empty.";
+    return extractedContent.length > 0 ? extractedContent : "**Error:** Section is empty.";
   }
 
   // Function to decode HTML entities to handle embedded special characters

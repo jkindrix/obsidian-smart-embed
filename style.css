@@ -1,0 +1,18 @@
+.smart-embed-copy-button {
+  background-color: var(--background-modifier-hover);
+  color: var(--text-normal);
+  border: 1px solid var(--text-muted);
+  padding: 5px 10px;
+  font-size: 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+.smart-embed-copy-button:hover {
+  background-color: var(--background-modifier-active);
+}
+
+.smart-embed-copy-button:active {
+  transform: scale(0.98);
+}

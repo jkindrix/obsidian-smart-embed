@@ -100,6 +100,50 @@ After embedding:
 (Content from journal-2023-02.md)
 ~~~
 
+Here’s the new section to add to your README, covering the updated functionality:
+
+---
+
+### **Embed Multiple Files in a Single Block**
+
+You can now embed multiple markdown files within a single `smart-embed` block by listing them together:
+
+#### **Embed Multiple Specific Files**
+~~~
+```smart-embed
+[[Note-One]]
+[[Note-Two]]
+[[Note-Three#Section]]
+```
+~~~
+This will embed the full content of `Note-One.md`, `Note-Two.md`, and only the `Section` from `Note-Three.md`.
+
+#### **Handling Missing Files and Sections**
+- If a referenced file does not exist, an error message will indicate that the file was not found.
+- If a section reference (e.g., `[[Note#Section]]`) is invalid or missing, an error message will indicate that the section could not be found.
+
+#### **Example Output**
+If `Note-One.md` and `Note-Two.md` exist but `Note-Three.md` lacks the requested section:
+~~~
+# Content from Note-One
+
+(Content from Note-One.md)
+
+---
+
+# Content from Note-Two
+
+(Content from Note-Two.md)
+
+---
+
+**Error:** Section 'Section' not found in 'Note-Three'
+~~~
+
+This enhancement allows for greater flexibility when embedding multiple files at once, reducing the need for multiple separate embed blocks.
+
+---
+
 ## Troubleshooting
 
 **1. Embedded files don’t appear**

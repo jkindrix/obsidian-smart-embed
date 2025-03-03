@@ -11,7 +11,17 @@ export class FileService {
   }
 
   async readFile(file: TFile): Promise<string> {
-    return await this.app.vault.cachedRead(file);
+    let content = await this.app.vault.cachedRead(file);
+
+    // Check if content starts with YAML front matter
+    if (content.startsWith("---")) {
+      const yamlEndIndex = content.indexOf("\n---", 3); // Locate the closing `---`
+      if (yamlEndIndex !== -1) {
+        content = content.slice(yamlEndIndex + 4).trim(); // Remove YAML and leading whitespace
+      }
+    }
+
+    return content;
   }
 
   getFilesByPrefix(prefix: string): TFile[] {

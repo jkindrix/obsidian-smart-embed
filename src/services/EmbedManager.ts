@@ -29,21 +29,44 @@ export class EmbedManager {
         return;
       }
 
-      const container = el.createDiv({ cls: ["smart-embed"] });
+      // Create a wrapper container with relative positioning
+      const wrapper = el.createDiv({ cls: ["smart-embed-wrapper"] });
+      wrapper.style.position = "relative";
 
-      // Create a copy button
-      const copyButton = container.createEl("button", { text: "Copy" });
+      // Create a div for content rendering
+      const container = wrapper.createDiv({ cls: ["smart-embed"] });
+
+      // Create a copy button with an SVG clipboard icon
+      const copyButton = document.createElement("button");
       copyButton.classList.add("smart-embed-copy-button");
+      copyButton.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 3H16V5H20V21H4V5H8V3ZM6 19H18V7H6V19ZM10 3V5H14V3H10Z"></path>
+        </svg>
+      `;
+
+      // Position the button in the top-right corner
+      copyButton.style.position = "absolute";
+      copyButton.style.top = "5px";
+      copyButton.style.right = "5px";
 
       // Copy the final embedded content
       copyButton.addEventListener("click", () => {
         navigator.clipboard.writeText(combinedContent.trim()).then(() => {
-          copyButton.textContent = "Copied!";
-          setTimeout(() => (copyButton.textContent = "Copy"), 1500);
+          copyButton.innerHTML = "✔️";
+          setTimeout(() => {
+            copyButton.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                <path d="M8 3H16V5H20V21H4V5H8V3ZM6 19H18V7H6V19ZM10 3V5H14V3H10Z"></path>
+              </svg>
+            `;
+          }, 1500);
         }).catch(err => console.error("Copy failed:", err));
       });
 
-      container.appendChild(copyButton); // Append button before rendering content
+      wrapper.appendChild(copyButton);
+      wrapper.appendChild(container);
+      el.appendChild(wrapper);
 
       // Render the markdown content
       await MarkdownRendererService.render(ctx.app, combinedContent, container, ctx, ctx.plugin);

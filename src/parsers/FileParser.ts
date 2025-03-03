@@ -1,21 +1,61 @@
 import { Parser } from "../parsers/Parser";
 import { EmbedRequest } from "../models/EmbedRequest";
 
+/**
+ * Parses Obsidian-style file embed links.
+ */
 export class FileParser implements Parser {
-  parse(source: string): EmbedRequest[] {
-    const filePattern = /\[\[([^\[\]]+?)(?:#(.+?))?(!?)\]\]/g;
+  /**
+   * Parses the given source text and extracts file embed requests.
+   *
+   * @param source - The input text containing file references.
+   * @returns A readonly array of structured EmbedRequest objects.
+   */
+  parse(source: string): ReadonlyArray<EmbedRequest> {
+    if (!source || typeof source !== "string") {
+      console.error("Invalid input: source must be a non-empty string.");
+      return [];
+    }
+
+    const filePattern =
+      /\[\[(?<file>[^\[\]#]+)(?:#(?<section>[^\[\]!]+))?(?<include>!?)\]\]/g;
+
     const matches = [...source.matchAll(filePattern)];
+    if (matches.length === 0) return [];
 
-    if (matches.length === 0) return []; // Ensure we return an array
+    return matches
+      .map((match) => this.extractEmbedRequest(match))
+      .filter((req): req is EmbedRequest => req !== null);
+  }
 
-    return matches.map(match => {
+  /**
+   * Extracts an EmbedRequest from a regex match.
+   *
+   * @param match - A single regex match object.
+   * @returns An EmbedRequest or null if invalid.
+   */
+  private extractEmbedRequest(match: RegExpMatchArray): EmbedRequest | null {
+    if (!match.groups) {
+      console.warn("Skipping malformed file link:", match[0]);
+      return null;
+    }
+
+    const fileName = match.groups.file?.trim();
+    const section = match.groups.section?.trim() || undefined;
+    const includeHeader = match.groups.include !== "!";
+
+    if (!fileName) {
+      console.warn(`Invalid file link detected: ${match[0]}`);
+      return null;
+    }
+
+    try {
       const request = new EmbedRequest();
-      const fileName = match[1].trim();
-      let section = match[2]?.trim() ?? null;
-      const includeHeader = match[3] !== "!"; // `!` means exclude the header
-
       request.addFile(fileName, section, includeHeader);
       return request;
-    });
+    } catch (error) {
+      console.error(`Error creating EmbedRequest for ${fileName}:`, error);
+      return null;
+    }
   }
 }

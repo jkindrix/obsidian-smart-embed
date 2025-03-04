@@ -5,7 +5,7 @@ import { ParserFactory } from "./parsers/ParserFactory.js";
 import { ErrorHandler } from "./utils/ErrorHandler";
 
 export default class SmartEmbed extends Plugin {
-  static codeBlockKeyword = "smart-embed";
+  static codeBlockKeyword = "embed";
   private fileService!: FileService;
   private embedManager!: EmbedManager;
 
@@ -15,11 +15,21 @@ export default class SmartEmbed extends Plugin {
 
     this.registerMarkdownCodeBlockProcessor(SmartEmbed.codeBlockKeyword, async (source, el, ctx) => {
       try {
-        const parser = ParserFactory.getParser(source);
-        const embedRequests = parser.parse(source); // Now correctly returns an array
+        // Filter out commented lines
+        const uncommentedSource = this.filterComments(source);
+
+        // Ensure there's content to process
+        if (!uncommentedSource.trim()) {
+          ErrorHandler.display(el, "No valid embed requests after filtering comments.");
+          return;
+        }
+
+        // Use the parser to extract embed requests
+        const parser = ParserFactory.getParser(uncommentedSource);
+        const embedRequests = parser.parse(uncommentedSource);
 
         if (!Array.isArray(embedRequests) || embedRequests.length === 0) {
-          ErrorHandler.display(el, "Invalid format. Use [[file]] [[file#section]] or prefix:prefix_name");
+          ErrorHandler.display(el, "Invalid format. Use [[file]], [[file#section]], or prefix:prefix_name");
           return;
         }
 
@@ -28,5 +38,16 @@ export default class SmartEmbed extends Plugin {
         ErrorHandler.display(el, `Error processing embed: ${error instanceof Error ? error.message : "Unknown error"}`);
       }
     });
+  }
+
+  /**
+   * Filters out commented lines from the source text.
+   * Comments can start with `#` or `//` at the beginning of a line.
+   */
+  private filterComments(source: string): string {
+    return source
+      .split("\n")
+      .filter(line => !line.trim().startsWith("#") && !line.trim().startsWith("//"))
+      .join("\n");
   }
 }

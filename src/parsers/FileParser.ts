@@ -17,10 +17,16 @@ export class FileParser implements Parser {
       return [];
     }
 
+    // Filter out commented lines (lines starting with # or //)
+    const filteredSource = source
+      .split("\n")
+      .filter(line => !line.trim().startsWith("#") && !line.trim().startsWith("//"))
+      .join("\n");
+
     const filePattern =
       /\[\[(?<file>[^\[\]#]+)(?:#(?<section>[^\[\]!]+))?(?<include>!?)\]\]/g;
 
-    const matches = [...source.matchAll(filePattern)];
+    const matches = [...filteredSource.matchAll(filePattern)];
     if (matches.length === 0) return [];
 
     return matches

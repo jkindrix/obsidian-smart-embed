@@ -17,7 +17,13 @@ export class PrefixParser implements Parser {
       return [];
     }
 
-    const prefixMatch = /^\s*prefix:\s*(.+)/.exec(source.trim());
+    // Filter out commented lines (lines starting with # or //)
+    const filteredSource = source
+      .split("\n")
+      .filter(line => !line.trim().startsWith("#") && !line.trim().startsWith("//"))
+      .join("\n");
+
+    const prefixMatch = /^\s*prefix:\s*(.+)/.exec(filteredSource.trim());
     if (!prefixMatch) return [];
 
     const prefixValue = prefixMatch[1]?.trim();

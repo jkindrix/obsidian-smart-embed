@@ -50,9 +50,11 @@ export class EmbedManager {
       copyButton.style.top = "5px";
       copyButton.style.right = "5px";
 
-      // Copy the final embedded content
-      copyButton.addEventListener("click", () => {
-        navigator.clipboard.writeText(combinedContent.trim()).then(() => {
+      // Copy the fully resolved embedded content
+      copyButton.addEventListener("click", async () => {
+        const fullyResolvedContent = await this.resolveNestedEmbeds(combinedContent.trim());
+
+        navigator.clipboard.writeText(fullyResolvedContent).then(() => {
           copyButton.innerHTML = "✔️";
           setTimeout(() => {
             copyButton.innerHTML = `
@@ -76,12 +78,68 @@ export class EmbedManager {
   }
 
   private async fetchContent(embedRequest: EmbedRequest): Promise<string> {
+    let content = "";
+
     if (embedRequest.isFileEmbed()) {
-      return await this.embedFile(embedRequest.fileName!, embedRequest.section, embedRequest.includeHeader);
+      content = await this.embedFile(embedRequest.fileName!, embedRequest.section, embedRequest.includeHeader);
     } else if (embedRequest.isPrefixEmbed()) {
-      return await this.embedFilesByPrefix(embedRequest.prefix!);
+      content = await this.embedFilesByPrefix(embedRequest.prefix!);
     }
-    return "";
+
+    // Only resolve nested embeds **inside** an `embed` code block
+    return embedRequest.isFileEmbed() || embedRequest.isPrefixEmbed()
+      ? await this.resolveNestedEmbeds(content)
+      : content;
+  }
+
+  /**
+   * Resolves **only** embedded documents inside `embed` code fences.
+   */
+  private async resolveNestedEmbeds(content: string): Promise<string> {
+    const embedCodeBlockPattern = /^```embed\n([\s\S]*?)\n```$/gm; // Match `embed` code blocks
+
+    let matches = [...content.matchAll(embedCodeBlockPattern)];
+    if (matches.length === 0) return content;
+
+    let resolvedContent = content;
+
+    for (const match of matches) {
+      const embedText = match[1]; // Extract the text inside ```embed```
+      const resolvedEmbed = await this.parseAndResolveEmbeds(embedText);
+
+      // Replace the entire matched embed block with the resolved content
+      resolvedContent = resolvedContent.replace(match[0], resolvedEmbed);
+    }
+
+    return resolvedContent;
+  }
+
+  /**
+   * Extracts and resolves **only `embed`-style wikilinks** inside embed code blocks.
+   */
+  private async parseAndResolveEmbeds(embedText: string): Promise<string> {
+    const embedPattern = /\[\[(?<file>[^\[\]#]+)(?:#(?<section>[^\[\]!]+))?(?<include>!?)\]\]/g;
+
+    let content = embedText;
+    let match;
+
+    while ((match = embedPattern.exec(embedText)) !== null) {
+      const fileName = match.groups?.file?.trim();
+      const section = match.groups?.section?.trim();
+      const includeHeader = match.groups?.include !== "!";
+
+      if (!fileName) continue;
+
+      // Fetch the embedded document's content
+      const embedRequest = new EmbedRequest();
+      embedRequest.addFile(fileName, section, includeHeader);
+      const embeddedContent = await this.fetchContent(embedRequest);
+
+      // Replace the embed reference **only inside the `embed` code fence**
+      content = content.replace(match[0], embeddedContent);
+    }
+
+    return content;
   }
 
   private async embedFile(fileName: string, section?: string, includeHeader: boolean = true): Promise<string> {
